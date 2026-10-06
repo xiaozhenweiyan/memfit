@@ -144,16 +144,41 @@ def save_cal(d: dict) -> None:
                        encoding="utf-8")
 
 
+def note_lines(text: str, prefix: str, indent: str, width: int = 72):
+    """
+    Wrap a note instead of truncating it.
+
+    Why this matters: the note carries the PROVENANCE of the overhead
+    number, and that provenance is the entire point -- "measured here
+    (file.gguf)" versus "extrapolated (a guess)". Chopping it at 26
+    characters destroyed exactly the information a reader needs in order
+    to decide whether to trust the prediction. Wrap, never cut.
+    """
+    words = str(text).split()
+    lines, cur = [], ""
+    for w in words:
+        if cur and len(cur) + len(w) + 1 > width:
+            lines.append(cur)
+            cur = w
+        else:
+            cur = (cur + " " + w).strip()
+    if cur:
+        lines.append(cur)
+    out = []
+    for i, ln in enumerate(lines):
+        out.append(indent + (prefix if i == 0 else " " * len(prefix)) + ln)
+    return out
+
+
 def overhead_for(info, cal: dict):
     """
     Runtime overhead for this model on this machine.
-    Returns (gb, source_note). Prefers measured; else extrapolates and SAYS SO.
+    Returns (gb, source_note). Prefers measured; else extrapolates AND SAYS SO.
     """
     ov = cal.get("overhead") or {}
     key = "%dL-%dH" % (info.n_layer, info.hidden)
     if key in ov:
-        return ov[key]["gb"], "measured here (%s)" % ov[key]["file"][:30]
-
+        return ov[key]["gb"], "measured here (%s)" % ov[key]["file"]
     if ov:
         pts = sorted((v["file_gb"], v["gb"]) for v in ov.values())
         if len(pts) >= 2:
@@ -161,12 +186,13 @@ def overhead_for(info, cal: dict):
             if x1 > x0:
                 k = (y1 - y0) / (x1 - x0)
                 est = y0 + k * (info.size_bytes / GB - x0)
-                return max(0.15, est), "extrapolated (**GUESS, unverified**)"
-        return pts[0][1], "borrowed from smallest measured (**GUESS**)"
-    # Never measured: seed from this box 1.5B measurement.
-    # 0.535 GB was measured on this machine for 1.5B (spread 0.001 over 4 ctxs),
-    # better than guessing 0.55. Still a GUESS for an unmeasured model.
-    return 0.535, "seed from this box's 1.5B measurement (**unverified here**)"
+                return max(0.15, est), "extrapolated -- UNVERIFIED, a guess"
+        return pts[0][1], "borrowed from the smallest measured -- a guess"
+    # Never measured on this machine: seed from the 1.5B result.
+    # 0.535 GB was measured here for 1.5B (spread 0.001 GB over four
+    # context sizes), which beats guessing 0.55. It is still a guess for
+    # any model shape that has not been measured here.
+    return 0.535, "seed from this box's 1.5B run -- UNVERIFIED here"
 
 
 # ===========================================================================
@@ -197,8 +223,9 @@ def render_predict(info, p: dict, avail_gb: float) -> None:
                                     c("%.1f KB/token x %d"
                                       % (p["per_tok"] / 1024, p["ctx"]),
                                       "dim")))
-    print("    %-12s%.3f GB  %s" % ("overhead", p["overhead"] / GB,
-                                    c(p["overhead_src"], "dim")))
+    print("    %-12s%.3f GB" % ("overhead", p["overhead"] / GB))
+    for ln in note_lines(p["overhead_src"], "-> ", " " * 16):
+        print(c(ln, "dim"))
     print("    " + "-" * 12)
     print("    %-12s%s" % ("PREDICTED", c("%.3f GB" % peak_gb, "f1")))
     print()
