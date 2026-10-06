@@ -182,6 +182,8 @@ def main() -> int:
     ap.add_argument("--check", action="store_true")
     ap.add_argument("--no-create", action="store_true")
     ap.add_argument("--branch", default="")
+    ap.add_argument("--force", action="store_true",
+                    help="use --force-with-lease (after an amend/rebase)")
     ap.add_argument("--desc", default=(
         "GGUF memory budget for CPU-only machines, with measured calibration"))
     args = ap.parse_args()
@@ -335,9 +337,25 @@ def main() -> int:
             continue
         print("      reachable (%.1fs)" % (time.time() - t0))
 
+        # Fetch first, ALWAYS.
+        # Why: after an amend/rebase the remote and local diverge, and the
+        # push is rejected as non-fast-forward. `--force-with-lease` needs a
+        # known remote-tracking ref to lease against, and it refuses with
+        # "stale info" when it has none -- which looks like a failure but is
+        # really just missing information. Fetching supplies it.
+        rc, fout = run_git(["-c", "http.extraheader=" + hdr,
+                            "fetch", "origin", branch], timeout=180)
+        if rc != 0:
+            print("      (fetch failed, will try a plain push anyway)")
+
+        push_args = ["-c", "http.extraheader=" + hdr, "push", "-u", "origin",
+                     branch]
+        if args.force:
+            push_args = ["-c", "http.extraheader=" + hdr, "push", "-u",
+                         "--force-with-lease", "origin", branch]
+
         t0 = time.time()
-        rc, out = run_git(["-c", "http.extraheader=" + hdr,
-                           "push", "-u", "origin", branch], timeout=600)
+        rc, out = run_git(push_args, timeout=600)
         safe = scrub(out, secrets)
         if rc == 0:
             print("      PUSHED in %.1fs" % (time.time() - t0))
@@ -346,6 +364,23 @@ def main() -> int:
                     print("        " + ln.strip()[:110])
             pushed_via = name
             break
+
+        # Non-fast-forward after an amend: retry once with the lease.
+        if "non-fast-forward" in safe or "rejected" in safe:
+            print("      rejected (history diverged); "
+                  "retrying with --force-with-lease")
+            rc, out = run_git(["-c", "http.extraheader=" + hdr, "push", "-u",
+                               "--force-with-lease", "origin", branch],
+                              timeout=600)
+            safe = scrub(out, secrets)
+            if rc == 0:
+                print("      PUSHED (forced) in %.1fs" % (time.time() - t0))
+                for ln in safe.splitlines():
+                    if ln.strip():
+                        print("        " + ln.strip()[:110])
+                pushed_via = name
+                break
+
         last_err = safe
         print("      FAILED in %.1fs" % (time.time() - t0))
         for ln in safe.strip().splitlines()[-4:]:
