@@ -1,0 +1,48 @@
+{
+  "overhead": {
+    "28L-1536H": {
+      "gb": 0.535,
+      "n": 2,
+      "file": "qwen2.5-1.5b-instruct-q4_k_m.gguf",
+      "file_gb": 1.041,
+      "ctx": 2048,
+      "t": 1791290731.3200705,
+      "last_ctx": 2048
+    }
+  },
+  "measurements": [
+    {
+      "t": 1791290702.8068607,
+      "model": "qwen2.5-1.5b-instruct-q4_k_m.gguf",
+      "ctx": 2048,
+      "predicted_gb": 1.63,
+      "actual_gb": 1.631,
+      "trusted": true,
+      "why": "",
+      "avail_gb": 2.57,
+      "load_s": 18.2
+    },
+    {
+      "t": 1791290731.3200705,
+      "model": "DeepSeek-R1-Distill-Qwen-1.5B-Q4_K_M.gguf",
+      "ctx": 2048,
+      "predicted_gb": 1.63,
+      "actual_gb": 1.63,
+      "trusted": true,
+      "why": "",
+      "avail_gb": 2.6,
+      "load_s": 17.1
+    },
+    {
+      "t": 1791290781.900867,
+      "model": "qwen2.5-3b-instruct-q4_k_m.gguf",
+      "ctx": 2048,
+      "predicted_gb": 2.566,
+      "actual_gb": 2.576,
+      "trusted": false,
+      "why": "启动前可用 2.48GB < 峰值 2.58GB；加载 37s（异常慢）",
+      "avail_gb": 2.48,
+      "load_s": 36.7
+    }
+  ]
+}

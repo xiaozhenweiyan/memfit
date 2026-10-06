@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# 校准数据：data/calibration.json **要提交**（那是这台机器的实测记录，
+# 是工具的产物也是证据）。但 measurements.json 是扫描过程的原始数据，
+# 每次跑都会变，不进仓库。
+data/measurements.json
+data/*.tmp
+
+# 本地杂物
+*.log
+*.bak
+.DS_Store
+Thumbs.db
+
+# 密钥 —— 绝对不能进仓库
+token.txt
+api_key.txt
+.env
+secrets.json
+*_token.txt
